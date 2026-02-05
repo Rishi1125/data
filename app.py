@@ -5,18 +5,17 @@ import json
 import os
 from io import BytesIO
 import hashlib
-import plotly.express as px
-import plotly.graph_objects as go
-import google.generativeai as genai
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import random
 import time
 
+
 # Email Configuration
 EMAIL_ADDRESS = "stockyy007@gmail.com"
 EMAIL_PASSWORD = "yuqf hnwk rmxf hsgb"
+
 
 # Initialize session state
 if 'logged_in' not in st.session_state:
@@ -27,10 +26,6 @@ if 'username' not in st.session_state:
     st.session_state.username = None
 if 'user_id' not in st.session_state:
     st.session_state.user_id = None
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'chat_df' not in st.session_state:
-    st.session_state.chat_df = None
 if 'otp_verified' not in st.session_state:
     st.session_state.otp_verified = False
 if 'pending_registration' not in st.session_state:
@@ -40,15 +35,12 @@ if 'otp_code' not in st.session_state:
 if 'otp_expiry' not in st.session_state:
     st.session_state.otp_expiry = None
 
+
 # File paths for data storage
 USERS_FILE = 'users.json'
 DATA_FILE = 'data_entries.json'
 FORM_FIELDS_FILE = 'form_fields.json'
 
-# Gemini API Configuration
-GEMINI_API_KEY = "AIzaSyCScLzMG_I3n7CvnfhXd0-hrd5clzYK9CE"
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.5-flash')
 
 # Initialize files if they don't exist
 def init_files():
@@ -83,33 +75,41 @@ def init_files():
         with open(FORM_FIELDS_FILE, 'w') as f:
             json.dump(default_fields, f, indent=2)
 
+
 def load_users():
     with open(USERS_FILE, 'r') as f:
         return json.load(f)
+
 
 def save_users(users):
     with open(USERS_FILE, 'w') as f:
         json.dump(users, f, indent=2)
 
+
 def load_data_entries():
     with open(DATA_FILE, 'r') as f:
         return json.load(f)
 
+
 def save_data_entries(entries):
     with open(DATA_FILE, 'w') as f:
         json.dump(entries, f, indent=2)
+
 
 def load_form_fields():
     with open(FORM_FIELDS_FILE, 'r') as f:
         fields = json.load(f)
         return sorted(fields, key=lambda x: x.get('order', 999))
 
+
 def save_form_fields(fields):
     with open(FORM_FIELDS_FILE, 'w') as f:
         json.dump(fields, f, indent=2)
 
+
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
+
 
 def authenticate(username, password):
     users = load_users()
@@ -119,10 +119,12 @@ def authenticate(username, password):
             return True, user['role'], user['user_id']
     return False, None, None
 
+
 # OTP Functions
 def generate_otp():
     """Generate 6-digit OTP"""
     return str(random.randint(100000, 999999))
+
 
 def send_otp_email(recipient_email, otp_code, username):
     """Send OTP via Gmail"""
@@ -157,56 +159,6 @@ def send_otp_email(recipient_email, otp_code, username):
     except Exception as e:
         return False, f"Failed to send OTP: {str(e)}"
 
-# AI Chatbot Functions
-def get_data_context():
-    """Prepare data context for AI"""
-    entries = load_data_entries()
-    df = pd.DataFrame(entries)
-    
-    if df.empty:
-        return "No data available", "[]"
-    
-    summary = f"""
-    Total entries: {len(df)}
-    Date range: {df.get('Date', pd.Series()).min() if 'Date' in df.columns else 'N/A'} to {df.get('Date', pd.Series()).max()}
-    Columns: {list(df.columns)}
-    """
-    
-    sample_data = df.head(10).to_json(orient='records', date_format='iso')
-    
-    return summary, sample_data
-
-def ai_analyze_data(question):
-    """Use Gemini AI to analyze data"""
-    try:
-        context, sample_data = get_data_context()
-        
-        full_prompt = f"""
-        You are an expert data analyst for a construction labor management system.
-        
-        DATA CONTEXT:
-        {context}
-        
-        SAMPLE DATA (first 10 rows):
-        {sample_data}
-        
-        USER QUESTION: {question}
-        
-        INSTRUCTIONS:
-        1. Analyze the labor tracking data (Date, Shift, Building, Contractor, Labour Category, Job counts)
-        2. Provide clear, actionable insights with exact numbers
-        3. Use tables for comparisons and summaries
-        4. Suggest visualizations or exports when relevant
-        5. If asked for reports, format as CSV-ready tables
-        6. Be concise but comprehensive
-        
-        Respond with analysis, insights, and recommendations.
-        """
-        
-        response = model.generate_content(full_prompt)
-        return response.text
-    except Exception as e:
-        return f"AI Analysis Error: {str(e)}. Please check your API key or try a simpler question."
 
 # Login page
 def login_page():
@@ -243,6 +195,7 @@ def login_page():
         
         st.markdown("---")
         st.info("**Default Admin:** Username: `admin` | Password: `admin123`")
+
 
 # Registration page with OTP
 def register_page():
@@ -348,6 +301,7 @@ def register_page():
             if remaining_time > 0:
                 st.caption(f"⏱️ OTP expires in: {remaining_time} seconds")
 
+
 # Render dynamic form field
 def render_field(field, key_prefix=""):
     field_name = field['field_name']
@@ -386,6 +340,7 @@ def render_field(field, key_prefix=""):
         return st.text_input(label, placeholder=placeholder or "+91 XXXXX XXXXX", key=f"{key_prefix}_{field['field_id']}")
     else:
         return st.text_input(label, key=f"{key_prefix}_{field['field_id']}")
+
 
 # Data entry page with Edit/Delete
 def data_entry_page():
@@ -526,41 +481,6 @@ def data_entry_page():
     else:
         st.info("No entries yet. Start by submitting your first entry!")
 
-# AI Chatbot Page
-def ai_chatbot_page():
-    st.title("🤖 AI Data Analyst Assistant")
-    st.markdown("**Ask me anything about your labor data!** 💬📊")
-    
-    for message in st.session_state.chat_history:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            if message.get("report_data"):
-                st.dataframe(pd.read_json(message["report_data"]))
-            if message.get("download_key"):
-                st.download_button(
-                    label="📥 Download Report",
-                    data=message["download_data"],
-                    file_name=message["download_key"],
-                    mime="text/csv"
-                )
-    
-    if prompt := st.chat_input("e.g., 'Show total workers by building', 'Contractor performance report'..."):
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        with st.chat_message("assistant"):
-            with st.spinner("🤖 AI is analyzing your data..."):
-                response = ai_analyze_data(prompt)
-                st.markdown(response)
-                
-                st.session_state.chat_history.append({
-                    "role": "assistant", 
-                    "content": response,
-                    "timestamp": datetime.now().strftime("%H:%M:%S")
-                })
-        
-        st.rerun()
 
 # Form builder for admin
 def form_builder_page():
@@ -677,6 +597,7 @@ def form_builder_page():
                     st.success(f"✅ Field '{field_name}' added successfully!")
                     st.rerun()
 
+
 # Reports page
 def reports_page():
     st.title("📊 Reports & Analytics")
@@ -772,6 +693,7 @@ def reports_page():
             if 'Building Name' in df.columns:
                 st.metric("Buildings", df['Building Name'].nunique())
 
+
 # Admin Data Management
 def admin_data_management():
     st.title("📊 Data Entries Management")
@@ -801,6 +723,7 @@ def admin_data_management():
                     save_data_entries(all_entries)
                     st.success(f"Deleted entry {entry['entry_id']}")
                     st.rerun()
+
 
 # User Management
 def user_management_page():
@@ -836,14 +759,14 @@ def user_management_page():
                         st.success(f"{toggle_text}d user: {username}")
                         st.rerun()
 
+
 # Admin dashboard
 def admin_dashboard():
     st.title("👨‍💼 Admin Dashboard")
     
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🔧 Form Builder", 
         "📊 Data Entries", 
-        "🤖 AI Chatbot",
         "📈 Reports",
         "👥 User Management", 
         "📥 Export Data"
@@ -851,10 +774,9 @@ def admin_dashboard():
     
     with tab1: form_builder_page()
     with tab2: admin_data_management()
-    with tab3: ai_chatbot_page()
-    with tab4: reports_page()
-    with tab5: user_management_page()
-    with tab6:
+    with tab3: reports_page()
+    with tab4: user_management_page()
+    with tab5:
         st.subheader("Export All Data")
         entries = load_data_entries()
         if entries:
@@ -864,6 +786,9 @@ def admin_dashboard():
                 df.to_excel(writer, index=False, sheet_name='All Data')
             output.seek(0)
             st.download_button("📥 Download All Data", data=output, file_name="all_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        else:
+            st.info("No data to export")
+
 
 # Logout
 def logout():
@@ -871,11 +796,11 @@ def logout():
     st.session_state.user_role = None
     st.session_state.username = None
     st.session_state.user_id = None
-    st.session_state.chat_history = []
     st.session_state.otp_verified = False
     st.session_state.pending_registration = None
     st.session_state.otp_code = None
     st.rerun()
+
 
 # Main app
 def main():
@@ -906,6 +831,7 @@ def main():
             admin_dashboard()
         else:
             data_entry_page()
+
 
 if __name__ == "__main__":
     main()
